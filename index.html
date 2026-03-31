@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meta Creative Calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="previewTooltip" class="preview-tooltip hidden"></div>
+    <main class="app-shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Meta Ad Operations</p>
+          <p class="data-freshness" id="dataFreshness"></p>
+          <h1>Creative Calendar</h1>
+          <p class="hero-text">
+            Track which creatives are active across funnels, ad sets, and launch dates
+            without losing the full picture.
+          </p>
+        </div>
+        <div class="hero-card">
+          <p class="hero-stat-label">This view answers</p>
+          <ul class="hero-stat-list">
+            <li>What ads are live in each funnel?</li>
+            <li>Which ad set owns each creative?</li>
+            <li>What needs to launch, refresh, or pause next?</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="toolbar">
+        <div class="filter-group">
+          <label for="funnelFilter">Funnel</label>
+          <select id="funnelFilter">
+            <option value="All">All funnels</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="campaignFilter">Campaign</label>
+          <select id="campaignFilter">
+            <option value="All">All campaigns</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="adSetFilter">Ad Set</label>
+          <select id="adSetFilter">
+            <option value="All">All ad sets</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter">
+            <option value="Live" selected>Live</option>
+            <option value="All">All statuses</option>
+            <option value="Planned">Planned</option>
+            <option value="Off">Off</option>
+            <option value="Paused">Paused</option>
+            <option value="Refreshing">Refreshing</option>
+          </select>
+        </div>
+        <button id="exportCsvButton" class="button-secondary">Export CSV</button>
+      </section>
+
+      <section class="view-tabs" aria-label="View selector">
+        <button id="tableViewTab" class="view-tab is-active" type="button">Table View</button>
+        <button id="boardViewTab" class="view-tab" type="button">Board View</button>
+        <button id="previewViewTab" class="view-tab" type="button">Creative Preview</button>
+      </section>
+
+      <section class="summary-grid" id="summaryGrid"></section>
+
+      <section class="panel" id="tableViewPanel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Calendar Rows</p>
+            <h2>Creative Tracker</h2>
+          </div>
+          <p class="panel-subtitle">One row per creative variation or live ad unit.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-sort-key="launchDate">Launch</th>
+                <th data-sort-key="launchCode">FY Launch</th>
+                <th data-sort-key="funnel">Funnel</th>
+                <th data-sort-key="campaign">Campaign</th>
+                <th data-sort-key="adSet">Ad Set</th>
+                <th data-sort-key="adName">Ad Name</th>
+                <th data-sort-key="versionCampaign">Version/ Campaign</th>
+                <th data-sort-key="spend">Spend</th>
+                <th data-sort-key="purchases">Purchases</th>
+                <th data-sort-key="roas">ROAS</th>
+                <th data-sort-key="status">Status</th>
+                <th data-sort-key="notes">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="calendarTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel board-panel hidden" id="boardViewPanel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Board View</p>
+            <h2>Creative Launch Board</h2>
+          </div>
+          <p class="panel-subtitle">Funnels are grouped into sections and each sub-column is an ad set.</p>
+        </div>
+        <div id="boardViewContent" class="board-view-content"></div>
+      </section>
+
+      <section class="panel hidden" id="previewViewPanel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Creative Preview</p>
+            <h2>Preview Library</h2>
+          </div>
+          <p class="panel-subtitle">Only ads with preview links, grouped by funnel and audience.</p>
+        </div>
+        <div id="previewViewContent" class="preview-view-content"></div>
+      </section>
+
+      <section class="panel form-panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Add A Row</p>
+            <h2>New Creative Entry</h2>
+          </div>
+          <p class="panel-subtitle">Use this to expand the calendar as campaigns evolve.</p>
+        </div>
+        <form id="creativeForm" class="creative-form">
+          <label>
+            Launch Date
+            <input type="date" name="launchDate" required />
+          </label>
+          <label>
+            FY Launch
+            <input type="text" name="launchCode" placeholder="FY26P02W1" />
+          </label>
+          <label>
+            Funnel
+            <select name="funnel" required>
+              <option value="UF">UF</option>
+              <option value="MF">MF</option>
+              <option value="LF">LF</option>
+              <option value="Retention">Retention</option>
+            </select>
+          </label>
+          <label>
+            Campaign
+            <input type="text" name="campaign" placeholder="Spring Sale Prospecting" required />
+          </label>
+          <label>
+            Version/ Campaign
+            <input type="text" name="versionCampaign" placeholder="BAU" />
+          </label>
+          <label>
+            Ad Set
+            <input type="text" name="adSet" placeholder="US Broad 25-44" required />
+          </label>
+          <label>
+            Ad Name
+            <input type="text" name="adName" placeholder="UGC Problem/Solution 01" required />
+          </label>
+          <label>
+            Spend
+            <input type="number" step="0.01" min="0" name="spend" placeholder="0.00" />
+          </label>
+          <label>
+            Purchases
+            <input type="number" step="1" min="0" name="purchases" placeholder="0" />
+          </label>
+          <label>
+            Status
+            <select name="status" required>
+              <option value="Planned">Planned</option>
+              <option value="Live">Live</option>
+              <option value="Off">Off</option>
+              <option value="Paused">Paused</option>
+              <option value="Refreshing">Refreshing</option>
+            </select>
+          </label>
+          <label>
+            ROAS
+            <input type="number" step="0.01" min="0" name="roas" placeholder="0.00" />
+          </label>
+          <label class="full-span">
+            Notes
+            <textarea
+              name="notes"
+              rows="3"
+              placeholder="Audience angle, creative theme, import note, or operational context"
+            ></textarea>
+          </label>
+          <button type="submit" class="button-primary">Add To Calendar</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="./data.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>
