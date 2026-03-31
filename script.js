@@ -1,7 +1,7 @@
 const fallbackRows = [
   {
     launchDate: "2026-04-01",
-    launchCode: "FY26P01W1",
+    endDate: "Live",
     funnel: "UF",
     versionCampaign: "Core",
     campaign: "Spring Sale Prospecting",
@@ -16,7 +16,7 @@ const fallbackRows = [
   },
   {
     launchDate: "2026-04-03",
-    launchCode: "FY26P01W1",
+    endDate: "2026-04-03",
     funnel: "UF",
     versionCampaign: "Core",
     campaign: "Spring Sale Prospecting",
@@ -31,7 +31,7 @@ const fallbackRows = [
   },
   {
     launchDate: "2026-04-05",
-    launchCode: "FY26P01W1",
+    endDate: "Live",
     funnel: "MF",
     versionCampaign: "Core",
     campaign: "Retarget 14 Day Engagers",
@@ -46,7 +46,7 @@ const fallbackRows = [
   },
   {
     launchDate: "2026-04-06",
-    launchCode: "FY26P01W1",
+    endDate: "2026-04-06",
     funnel: "LF",
     versionCampaign: "Core",
     campaign: "Cart And Checkout Recovery",
@@ -61,7 +61,7 @@ const fallbackRows = [
   },
   {
     launchDate: "2026-04-08",
-    launchCode: "FY26P01W2",
+    endDate: "2026-04-08",
     funnel: "Retention",
     versionCampaign: "Retention",
     campaign: "Repeat Purchase Push",
@@ -89,11 +89,19 @@ const sortableHeaders = document.querySelectorAll("th[data-sort-key]");
 const tableViewTab = document.getElementById("tableViewTab");
 const boardViewTab = document.getElementById("boardViewTab");
 const previewViewTab = document.getElementById("previewViewTab");
+const calendarViewTab = document.getElementById("calendarViewTab");
 const tableViewPanel = document.getElementById("tableViewPanel");
 const boardViewPanel = document.getElementById("boardViewPanel");
 const previewViewPanel = document.getElementById("previewViewPanel");
+const calendarViewPanel = document.getElementById("calendarViewPanel");
 const boardViewContent = document.getElementById("boardViewContent");
 const previewViewContent = document.getElementById("previewViewContent");
+const calendarViewContent = document.getElementById("calendarViewContent");
+const calendarPlanSelect = document.getElementById("calendarPlanSelect");
+const calendarFreeFieldSelect = document.getElementById("calendarFreeFieldSelect");
+const calendarPlanDate = document.getElementById("calendarPlanDate");
+const calendarPlanSave = document.getElementById("calendarPlanSave");
+const calendarPlanClear = document.getElementById("calendarPlanClear");
 const dataFreshness = document.getElementById("dataFreshness");
 const previewTooltip = document.getElementById("previewTooltip");
 
@@ -104,8 +112,32 @@ let sortState = {
 let currentView = "table";
 let activePreviewTarget = null;
 const importedMeta = window.metaCreativeData?.meta || {};
+const plannedEndDatesKey = "metaCreativeCalendar.plannedEndDates.v1";
+let plannedEndDates = loadPlannedEndDates();
+
+const fiscalPeriods = [
+  { name: "P01", start: "2026-02-02", end: "2026-03-01" },
+  { name: "P02", start: "2026-03-02", end: "2026-04-05" },
+  { name: "P03", start: "2026-04-06", end: "2026-05-03" },
+  { name: "P04", start: "2026-05-04", end: "2026-05-31" },
+  { name: "P05", start: "2026-06-01", end: "2026-07-05" },
+  { name: "P06", start: "2026-07-06", end: "2026-08-02" },
+  { name: "P07", start: "2026-08-03", end: "2026-08-30" },
+  { name: "P08", start: "2026-08-31", end: "2026-10-04" },
+  { name: "P09", start: "2026-10-05", end: "2026-11-01" },
+  { name: "P10", start: "2026-11-02", end: "2026-11-29" },
+  { name: "P11", start: "2026-11-30", end: "2027-01-03" },
+  { name: "P12", start: "2027-01-04", end: "2027-01-31" }
+];
+const visibleFiscalPeriods = fiscalPeriods.slice(0, 5);
 
 let rows = loadRows();
+let selectedCalendarPlannerVersion = "";
+let selectedCalendarFreeField = "";
+
+function isVisibleRow(row) {
+  return !String(row.campaign || "").includes("Core BAU");
+}
 
 function loadRows() {
   try {
@@ -125,18 +157,32 @@ function loadRows() {
   }
 }
 
+function loadPlannedEndDates() {
+  try {
+    const saved = localStorage.getItem(plannedEndDatesKey);
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    return {};
+  }
+}
+
 function saveRows() {
   localStorage.setItem(storageKey, JSON.stringify(rows));
 }
 
+function savePlannedEndDates() {
+  localStorage.setItem(plannedEndDatesKey, JSON.stringify(plannedEndDates));
+}
+
 function uniqueValues(key) {
-  return [...new Set(rows.map((row) => row[key]))].sort();
+  return [...new Set(rows.filter(isVisibleRow).map((row) => row[key]))].sort();
 }
 
 function getVisibleAdSets() {
   return [
     ...new Set(
       rows
+        .filter(isVisibleRow)
         .filter((row) => funnelFilter.value === "All" || row.funnel === funnelFilter.value)
         .filter((row) => campaignFilter.value === "All" || row.campaign === campaignFilter.value)
         .map((row) => row.adSet)
@@ -148,6 +194,7 @@ function getVisibleCampaigns() {
   return [
     ...new Set(
       rows
+        .filter(isVisibleRow)
         .filter((row) => funnelFilter.value === "All" || row.funnel === funnelFilter.value)
         .map((row) => row.campaign)
     )
@@ -170,11 +217,12 @@ function populateFilter(selectElement, values, label) {
 
 function getFilteredRows() {
   return rows.filter((row) => {
+    const visibleMatch = isVisibleRow(row);
     const funnelMatch = funnelFilter.value === "All" || row.funnel === funnelFilter.value;
     const campaignMatch = campaignFilter.value === "All" || row.campaign === campaignFilter.value;
     const adSetMatch = adSetFilter.value === "All" || row.adSet === adSetFilter.value;
     const statusMatch = statusFilter.value === "All" || row.status === statusFilter.value;
-    return funnelMatch && campaignMatch && adSetMatch && statusMatch;
+    return visibleMatch && funnelMatch && campaignMatch && adSetMatch && statusMatch;
   });
 }
 
@@ -233,11 +281,12 @@ function renderTable() {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${row.launchDate}</td>
-        <td>${row.launchCode || ""}</td>
+        <td>${row.endDate || ""}</td>
         <td>${row.funnel}</td>
         <td>${row.campaign}</td>
-        <td>${row.adSet}</td>
+        <td>${formatTableAdSet(row.adSet)}</td>
         <td>${renderAdName(row)}</td>
+        <td>${renderPreviewLink(row)}</td>
         <td>${row.versionCampaign || ""}</td>
         <td>${formatCurrency(row.spend)}</td>
         <td>${formatNumber(row.purchases)}</td>
@@ -308,7 +357,7 @@ function renderBoard() {
             card.innerHTML = `
               <div>
                 <p class="board-card-name">${row.adName}</p>
-                <p class="board-card-meta">${row.versionCampaign || ""}${row.launchCode ? ` • ${row.launchCode}` : ""}</p>
+                <p class="board-card-meta">${row.versionCampaign || ""}${row.endDate ? ` • ${row.endDate}` : ""}</p>
               </div>
               <div class="board-card-date">${row.launchDate}</div>
             `;
@@ -406,6 +455,268 @@ function renderPreviewView() {
     });
 }
 
+function getRowKey(row) {
+  return [row.funnel, row.campaign, row.adSet, row.adName, row.versionCampaign].join("||");
+}
+
+function getCalendarEndDate(row) {
+  const planned = plannedEndDates[getRowKey(row)];
+  if (planned) {
+    return planned;
+  }
+  if (row.endDate && row.endDate !== "Live") {
+    return row.endDate;
+  }
+  return importedMeta.lastDataDate || row.launchDate;
+}
+
+function formatShortDate(value) {
+  if (!value) {
+    return "";
+  }
+  const [year, month, day] = value.split("-");
+  return `${Number(month)}/${Number(day)}/${year.slice(2)}`;
+}
+
+function getVersionCampaignBarClass(versionCampaign) {
+  const value = String(versionCampaign || "").toLowerCase();
+
+  if (value.includes("hg spring")) {
+    return "calendar-bar-vc-hg-spring";
+  }
+  if (value.includes("chewpanions")) {
+    return "calendar-bar-vc-chewpanions";
+  }
+  if (value.includes("influencer") || value === "inf") {
+    return "calendar-bar-vc-influencer";
+  }
+  if (value.includes("education")) {
+    return "calendar-bar-vc-education";
+  }
+  if (value.includes("food")) {
+    return "calendar-bar-vc-food";
+  }
+  if (value.includes("rx")) {
+    return "calendar-bar-vc-rx";
+  }
+  if (value.includes("imc")) {
+    return "calendar-bar-vc-imc";
+  }
+  if (value.includes("vf")) {
+    return "calendar-bar-vc-vf";
+  }
+  if (value.includes("crm")) {
+    return "calendar-bar-vc-crm";
+  }
+  if (value.includes("brand")) {
+    return "calendar-bar-vc-brand";
+  }
+  return "calendar-bar-vc-default";
+}
+
+function getBarClass(row) {
+  return ["calendar-bar", getVersionCampaignBarClass(row.versionCampaign)].join(" ");
+}
+
+function getBarPosition(startDate, endDate) {
+  const totalStart = visibleFiscalPeriods[0].start;
+  const totalEnd = visibleFiscalPeriods[visibleFiscalPeriods.length - 1].end;
+  const start = Math.max(new Date(startDate).getTime(), new Date(totalStart).getTime());
+  const end = Math.min(new Date(endDate).getTime(), new Date(totalEnd).getTime());
+  const totalSpan = new Date(totalEnd).getTime() - new Date(totalStart).getTime();
+  const left = ((start - new Date(totalStart).getTime()) / totalSpan) * 100;
+  const width = Math.max(((end - start) / totalSpan) * 100, 2.5);
+  return { left, width };
+}
+
+function getFunnelSortIndex(funnel) {
+  return {
+    UF: 0,
+    MF: 1,
+    LF: 2,
+    Retention: 3,
+    Other: 4
+  }[funnel] ?? 5;
+}
+
+function getCalendarPlannerMatches(filteredRows) {
+  return filteredRows.filter((row) => {
+    const plannerVersion = row.plannerVersionCampaign || row.versionCampaign || "";
+    const adFreeField = row.adFreeField || row.adName || "";
+    const versionMatch = !selectedCalendarPlannerVersion || plannerVersion === selectedCalendarPlannerVersion;
+    const freeFieldMatch =
+      !selectedCalendarFreeField ||
+      selectedCalendarFreeField === "__ALL__" ||
+      adFreeField === selectedCalendarFreeField;
+    return versionMatch && freeFieldMatch;
+  });
+}
+
+function syncCalendarPlanner(filteredRows) {
+  const plannerVersions = [
+    ...new Set(
+      filteredRows
+        .map((row) => row.plannerVersionCampaign || row.versionCampaign || "")
+        .filter(Boolean)
+    )
+  ].sort();
+
+  if (!plannerVersions.includes(selectedCalendarPlannerVersion)) {
+    selectedCalendarPlannerVersion = "";
+  }
+
+  calendarPlanSelect.innerHTML = '<option value="">Select version/campaign</option>';
+  plannerVersions.forEach((value) => {
+    const element = document.createElement("option");
+    element.value = value;
+    element.textContent = value;
+    if (value === selectedCalendarPlannerVersion) {
+      element.selected = true;
+    }
+    calendarPlanSelect.appendChild(element);
+  });
+
+  const freeFieldOptions = [
+    ...new Set(
+      filteredRows
+        .filter((row) => {
+          const plannerVersion = row.plannerVersionCampaign || row.versionCampaign || "";
+          return !selectedCalendarPlannerVersion || plannerVersion === selectedCalendarPlannerVersion;
+        })
+        .map((row) => row.adFreeField || row.adName || "")
+        .filter(Boolean)
+    )
+  ].sort();
+
+  if (selectedCalendarFreeField !== "__ALL__" && !freeFieldOptions.includes(selectedCalendarFreeField)) {
+    selectedCalendarFreeField = "";
+  }
+
+  calendarFreeFieldSelect.innerHTML = [
+    '<option value="">Select ad free field</option>',
+    '<option value="__ALL__">All ad free fields</option>'
+  ].join("");
+  freeFieldOptions.forEach((value) => {
+    const element = document.createElement("option");
+    element.value = value;
+    element.textContent = value;
+    if (value === selectedCalendarFreeField) {
+      element.selected = true;
+    }
+    calendarFreeFieldSelect.appendChild(element);
+  });
+
+  const matches = getCalendarPlannerMatches(filteredRows);
+  const matchedKeys = matches.map((row) => getRowKey(row));
+  const matchedValues = matchedKeys
+    .map((key) => plannedEndDates[key])
+    .filter(Boolean);
+  const uniqueValues = [...new Set(matchedValues)];
+  const resolvedValue = uniqueValues.length === 1 ? uniqueValues[0] : "";
+  const hasSelection = Boolean(selectedCalendarPlannerVersion && selectedCalendarFreeField && matches.length);
+
+  calendarPlanDate.disabled = !hasSelection;
+  calendarPlanSave.disabled = !hasSelection;
+  calendarPlanClear.disabled = !hasSelection;
+  calendarPlanDate.value = resolvedValue;
+}
+
+function renderCalendarView() {
+  const filteredRows = getFilteredRows();
+  calendarViewContent.innerHTML = "";
+  syncCalendarPlanner(filteredRows);
+
+  const grid = document.createElement("div");
+  grid.className = "calendar-grid";
+  grid.style.setProperty("--calendar-period-count", String(visibleFiscalPeriods.length));
+
+  const headerRow = document.createElement("div");
+  headerRow.className = "calendar-header-row";
+  headerRow.innerHTML = `
+    <div class="calendar-header-label">Campaign / Ad Set / Ad</div>
+    ${visibleFiscalPeriods
+      .map(
+        (period) => `
+          <div class="calendar-header-cell">
+            <span class="calendar-period-name">${period.name}</span>
+            <span class="calendar-period-dates">${formatShortDate(period.start)} - ${formatShortDate(period.end)}</span>
+          </div>
+        `
+      )
+      .join("")}
+  `;
+  grid.appendChild(headerRow);
+
+  const grouped = new Map();
+  [...filteredRows]
+    .sort(
+      (a, b) =>
+        getFunnelSortIndex(a.funnel) - getFunnelSortIndex(b.funnel) ||
+        a.campaign.localeCompare(b.campaign) ||
+        a.adSet.localeCompare(b.adSet) ||
+        a.adName.localeCompare(b.adName)
+    )
+    .forEach((row) => {
+    if (!grouped.has(row.campaign)) {
+      grouped.set(row.campaign, new Map());
+    }
+    const adSets = grouped.get(row.campaign);
+    if (!adSets.has(row.adSet)) {
+      adSets.set(row.adSet, []);
+    }
+    adSets.get(row.adSet).push(row);
+    });
+
+  grouped.forEach((adSets, campaign) => {
+    const campaignRow = document.createElement("div");
+    campaignRow.className = "calendar-period-row";
+    campaignRow.innerHTML = `
+      <div class="calendar-row-label calendar-campaign-label">${escapeHtml(campaign)}</div>
+      ${visibleFiscalPeriods.map(() => '<div class="calendar-period-cell"></div>').join("")}
+    `;
+    grid.appendChild(campaignRow);
+
+    adSets.forEach((rowsForAdSet, adSet) => {
+      const adSetRow = document.createElement("div");
+      adSetRow.className = "calendar-period-row";
+      adSetRow.innerHTML = `
+        <div class="calendar-row-label calendar-adset-label">${escapeHtml(adSet)}</div>
+        ${visibleFiscalPeriods.map(() => '<div class="calendar-period-cell"></div>').join("")}
+      `;
+      grid.appendChild(adSetRow);
+
+      rowsForAdSet
+        .sort((a, b) => a.launchDate.localeCompare(b.launchDate) || a.adName.localeCompare(b.adName))
+        .forEach((row) => {
+          const dataRow = document.createElement("div");
+          dataRow.className = "calendar-data-row";
+
+          const rowKey = getRowKey(row);
+          const effectiveEnd = getCalendarEndDate(row);
+          const position = getBarPosition(row.launchDate, effectiveEnd);
+
+          const labelCell = document.createElement("div");
+          labelCell.className = "calendar-row-label calendar-ad-label";
+          labelCell.innerHTML = `<div class="calendar-ad-spacer"></div>`;
+
+          const track = document.createElement("div");
+          track.className = "calendar-track calendar-track-empty";
+          track.innerHTML = `
+            <div class="${getBarClass(row)}" style="left:${position.left}%; width:${position.width}%;">
+              <span class="calendar-bar-text">${escapeHtml(row.adName)}</span>
+            </div>
+          `;
+
+          dataRow.appendChild(labelCell);
+          dataRow.appendChild(track);
+          grid.appendChild(dataRow);
+        });
+    });
+  });
+
+  calendarViewContent.appendChild(grid);
+}
+
 function refreshFilters() {
   populateFilter(funnelFilter, uniqueValues("funnel"), "funnels");
   populateFilter(campaignFilter, getVisibleCampaigns(), "campaigns");
@@ -418,6 +729,7 @@ function renderAll() {
   renderTable();
   renderBoard();
   renderPreviewView();
+  renderCalendarView();
   renderView();
 }
 
@@ -442,6 +754,26 @@ function renderAdName(row) {
   }
 
   return `<span class="ad-name-link" data-preview-url="${escapeHtml(row.previewUrl)}" data-preview-name="${escapeHtml(row.adName)}">${escapeHtml(row.adName)}</span>`;
+}
+
+function renderPreviewLink(row) {
+  if (!row.previewUrl) {
+    return "";
+  }
+
+  return `<a href="${escapeHtml(row.previewUrl)}" target="_blank" rel="noreferrer">Open</a>`;
+}
+
+function formatTableAdSet(adSet) {
+  if (!adSet) {
+    return "";
+  }
+
+  if (adSet.includes("_DABA ") || adSet.includes("DABA ")) {
+    return "DABA";
+  }
+
+  return adSet;
 }
 
 function formatNumber(value) {
@@ -496,9 +828,11 @@ function renderView() {
   tableViewPanel.classList.toggle("hidden", currentView !== "table");
   boardViewPanel.classList.toggle("hidden", currentView !== "board");
   previewViewPanel.classList.toggle("hidden", currentView !== "preview");
+  calendarViewPanel.classList.toggle("hidden", currentView !== "calendar");
   tableViewTab.classList.toggle("is-active", currentView === "table");
   boardViewTab.classList.toggle("is-active", currentView === "board");
   previewViewTab.classList.toggle("is-active", currentView === "preview");
+  calendarViewTab.classList.toggle("is-active", currentView === "calendar");
 }
 
 function escapeCsv(value) {
@@ -517,11 +851,12 @@ function exportCsv() {
   const filteredRows = getFilteredRows();
   const header = [
     "Launch Date",
-    "FY Launch",
+    "End Date",
     "Funnel",
     "Campaign",
     "Ad Set",
     "Ad Name",
+    "Preview Link",
     "Version/ Campaign",
     "Spend",
     "Purchases",
@@ -535,11 +870,12 @@ function exportCsv() {
     ...filteredRows.map((row) =>
       [
         row.launchDate,
-        row.launchCode,
+        row.endDate,
         row.funnel,
         row.campaign,
         row.adSet,
         row.adName,
+        row.previewUrl,
         row.versionCampaign,
         row.spend,
         row.purchases,
@@ -567,7 +903,7 @@ creativeForm.addEventListener("submit", (event) => {
   const formData = new FormData(creativeForm);
   rows.push({
     launchDate: formData.get("launchDate"),
-    launchCode: formData.get("launchCode").trim(),
+    endDate: formData.get("endDate").trim(),
     funnel: formData.get("funnel"),
     versionCampaign: formData.get("versionCampaign").trim(),
     campaign: formData.get("campaign").trim(),
@@ -591,6 +927,7 @@ funnelFilter.addEventListener("change", () => {
   renderTable();
   renderBoard();
   renderPreviewView();
+  renderCalendarView();
 });
 
 campaignFilter.addEventListener("change", () => {
@@ -598,14 +935,17 @@ campaignFilter.addEventListener("change", () => {
   renderTable();
   renderBoard();
   renderPreviewView();
+  renderCalendarView();
 });
 
 adSetFilter.addEventListener("change", renderTable);
 adSetFilter.addEventListener("change", renderBoard);
 adSetFilter.addEventListener("change", renderPreviewView);
+adSetFilter.addEventListener("change", renderCalendarView);
 statusFilter.addEventListener("change", renderTable);
 statusFilter.addEventListener("change", renderBoard);
 statusFilter.addEventListener("change", renderPreviewView);
+statusFilter.addEventListener("change", renderCalendarView);
 
 exportCsvButton.addEventListener("click", exportCsv);
 
@@ -624,6 +964,46 @@ previewViewTab.addEventListener("click", () => {
   renderView();
 });
 
+calendarViewTab.addEventListener("click", () => {
+  currentView = "calendar";
+  renderView();
+});
+
+calendarPlanSelect.addEventListener("change", () => {
+  selectedCalendarPlannerVersion = calendarPlanSelect.value;
+  renderCalendarView();
+});
+
+calendarFreeFieldSelect.addEventListener("change", () => {
+  selectedCalendarFreeField = calendarFreeFieldSelect.value;
+  renderCalendarView();
+});
+
+calendarPlanSave.addEventListener("click", () => {
+  const matches = getCalendarPlannerMatches(getFilteredRows());
+  if (!selectedCalendarPlannerVersion || !selectedCalendarFreeField || !calendarPlanDate.value || !matches.length) {
+    return;
+  }
+  matches.forEach((row) => {
+    plannedEndDates[getRowKey(row)] = calendarPlanDate.value;
+  });
+  savePlannedEndDates();
+  renderCalendarView();
+});
+
+calendarPlanClear.addEventListener("click", () => {
+  const matches = getCalendarPlannerMatches(getFilteredRows());
+  if (!selectedCalendarPlannerVersion || !selectedCalendarFreeField || !matches.length) {
+    return;
+  }
+  matches.forEach((row) => {
+    delete plannedEndDates[getRowKey(row)];
+  });
+  calendarPlanDate.value = "";
+  savePlannedEndDates();
+  renderCalendarView();
+});
+
 sortableHeaders.forEach((header) => {
   header.addEventListener("click", () => {
     const key = header.dataset.sortKey;
@@ -635,6 +1015,7 @@ sortableHeaders.forEach((header) => {
     renderTable();
     renderBoard();
     renderPreviewView();
+    renderCalendarView();
   });
 });
 

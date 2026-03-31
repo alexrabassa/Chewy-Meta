@@ -118,6 +118,20 @@ def derive_version_campaign(ad_name):
     return parts[0]
 
 
+def derive_planner_version_campaign(ad_name):
+    parts = [part.strip() for part in ad_name.split("_") if part.strip()]
+    if len(parts) >= 3:
+        return parts[2]
+    if parts:
+        return parts[0]
+    return ""
+
+
+def derive_ad_free_field(ad_name):
+    parts = [part.strip() for part in ad_name.split("_") if part.strip()]
+    return parts[-1] if parts else ""
+
+
 def derive_fiscal_launch(ad_name):
     match = re.search(r"_(FY\d{2}P\d{2}W\d)_", ad_name)
     if match:
@@ -209,9 +223,11 @@ def build_creative_rows(raw_rows, preview_lookup=None):
     grouped = defaultdict(
         lambda: {
             "launchDate": "",
-            "launchCode": "",
+            "endDate": "",
             "funnel": "",
             "versionCampaign": "",
+            "plannerVersionCampaign": "",
+            "adFreeField": "",
             "campaign": "",
             "adSet": "",
             "adName": "",
@@ -247,14 +263,17 @@ def build_creative_rows(raw_rows, preview_lookup=None):
 
         funnel = infer_funnel(campaign)
         version_campaign = derive_version_campaign(ad_name)
+        planner_version_campaign = derive_planner_version_campaign(ad_name)
+        ad_free_field = derive_ad_free_field(ad_name)
         display_campaign = simplify_campaign_name(campaign)
         display_ad_name = simplify_ad_name(ad_name)
         key = (funnel, version_campaign, display_campaign, ad_set, display_ad_name)
         launch_key = (funnel, version_campaign, ad_set, display_ad_name)
         record = grouped[key]
         record["funnel"] = funnel
-        record["launchCode"] = derive_fiscal_launch(ad_name)
         record["versionCampaign"] = version_campaign
+        record["plannerVersionCampaign"] = planner_version_campaign
+        record["adFreeField"] = ad_free_field
         record["campaign"] = display_campaign
         record["adSet"] = ad_set
         record["adName"] = display_ad_name
@@ -300,6 +319,7 @@ def build_creative_rows(raw_rows, preview_lookup=None):
         last_spend_day = parse_iso_date(record["lastSpendDate"])
         last_impression_day = parse_iso_date(record["lastImpressionDate"])
         thresholds = get_inactivity_thresholds(record["funnel"])
+        last_activity_date = max(record["lastSpendDate"], record["lastImpressionDate"])
 
         if record["spend"] <= 0:
             record["status"] = "Off"
@@ -313,6 +333,8 @@ def build_creative_rows(raw_rows, preview_lookup=None):
             record["status"] = "Off"
         else:
             record["status"] = infer_status(record["spend"], record["purchases"])
+
+        record["endDate"] = "Live" if record["status"] == "Live" else last_activity_date
 
         record["notes"] = "Imported from Meta export. Funnel inferred from campaign naming."
         if record["status"] == "Off" and record["spend"] <= 0:

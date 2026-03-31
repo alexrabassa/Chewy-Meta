@@ -72,6 +72,7 @@
         <button id="tableViewTab" class="view-tab is-active" type="button">Table View</button>
         <button id="boardViewTab" class="view-tab" type="button">Board View</button>
         <button id="previewViewTab" class="view-tab" type="button">Creative Preview</button>
+        <button id="calendarViewTab" class="view-tab" type="button">Calendar View</button>
       </section>
 
       <section class="summary-grid" id="summaryGrid"></section>
@@ -89,11 +90,12 @@
             <thead>
               <tr>
                 <th data-sort-key="launchDate">Launch</th>
-                <th data-sort-key="launchCode">FY Launch</th>
+                <th data-sort-key="endDate">End Date</th>
                 <th data-sort-key="funnel">Funnel</th>
                 <th data-sort-key="campaign">Campaign</th>
                 <th data-sort-key="adSet">Ad Set</th>
                 <th data-sort-key="adName">Ad Name</th>
+                <th data-sort-key="previewUrl">Preview Link</th>
                 <th data-sort-key="versionCampaign">Version/ Campaign</th>
                 <th data-sort-key="spend">Spend</th>
                 <th data-sort-key="purchases">Purchases</th>
@@ -129,6 +131,40 @@
         <div id="previewViewContent" class="preview-view-content"></div>
       </section>
 
+      <section class="panel hidden" id="calendarViewPanel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Calendar View</p>
+            <h2>Fiscal Launch Calendar</h2>
+          </div>
+          <p class="panel-subtitle">Grouped by campaign, then ad set, with bars spanning fiscal periods.</p>
+        </div>
+        <div class="calendar-controls">
+          <div class="filter-group calendar-control-group">
+            <label for="calendarPlanSelect">Version/ Campaign</label>
+            <select id="calendarPlanSelect">
+              <option value="">Select version/campaign</option>
+            </select>
+          </div>
+          <div class="filter-group calendar-control-group">
+            <label for="calendarFreeFieldSelect">Ad Free Field</label>
+            <select id="calendarFreeFieldSelect">
+              <option value="">Select ad free field</option>
+              <option value="__ALL__">All ad free fields</option>
+            </select>
+          </div>
+          <div class="filter-group calendar-control-group">
+            <label for="calendarPlanDate">End Date</label>
+            <input id="calendarPlanDate" type="date" />
+          </div>
+          <div class="calendar-control-actions">
+            <button id="calendarPlanSave" class="button-primary" type="button">Save End Date</button>
+            <button id="calendarPlanClear" class="button-secondary" type="button">Clear</button>
+          </div>
+        </div>
+        <div id="calendarViewContent" class="calendar-view-content"></div>
+      </section>
+
       <section class="panel form-panel">
         <div class="panel-header">
           <div>
@@ -143,8 +179,8 @@
             <input type="date" name="launchDate" required />
           </label>
           <label>
-            FY Launch
-            <input type="text" name="launchCode" placeholder="FY26P02W1" />
+            End Date
+            <input type="text" name="endDate" placeholder="Live or 2026-03-29" />
           </label>
           <label>
             Funnel
